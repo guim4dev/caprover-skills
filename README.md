@@ -1,4 +1,4 @@
-# caprover-skill
+# caprover-skills
 
 Agent skills for managing and deploying apps on [CapRover](https://caprover.com) — a self-hosted PaaS built on Docker Swarm.
 
