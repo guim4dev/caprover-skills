@@ -100,6 +100,8 @@ api("/api/v2/user/apps/appDefinitions/update", {
 
 > ⚠️ **Port update bug**: The `ports` field update sometimes returns HTTP 500 on CapRover (known issue). Workaround: set ports once at app creation time or use `serviceUpdateOverride`.
 
+> ⚠️ **`envVars`/`ports`/`volumes` are NOT partially merged — omitting one wipes it, despite "only provided fields are updated" in the docs.** Verified 2026-08-06: calling `appDefinitions/update` with only `{"appName": ..., "instanceCount": 1}` (no `envVars` key at all) reset `envVars` to `[]` on a live app, taking `DATABASE_URL` with it and crash-looping the container. If you use `scripts/caprover.py`'s `update_app()`, this is handled for you — it fetches the current app definition and resends any of these three fields you didn't explicitly pass. If you're calling the raw API directly, fetch current `envVars`/`ports`/`volumes` first and include them in every `appDefinitions/update` call that touches the same app.
+
 ### 5. Advanced Docker Swarm Settings (serviceUpdateOverride)
 
 For settings not exposed in the standard API — volume mounts, custom DNS, resource limits:

@@ -62,7 +62,14 @@ Response: { "status": 100, "description": "App created", "data": {} }
 ```
 
 ### POST `/api/v2/user/apps/appDefinitions/update`
-Update app settings. All fields are optional — only provided fields are updated.
+Update app settings. All fields are optional in the sense that you may omit them — but
+**`envVars`, `ports`, and `volumes` are NOT merged with the current value when omitted;
+omitting them wipes them to empty**, contradicting the "only provided fields are
+updated" framing this doc used to have. Verified 2026-08-06 against a live app: a call
+with only `{"appName": ..., "instanceCount": 1}` reset `envVars` to `[]`, which took
+`DATABASE_URL` with it and crash-looped the container. Always fetch the app's current
+definition first and resend these three fields as-is if you're not intentionally
+changing them. `scripts/caprover.py`'s `update_app()` does this automatically.
 
 ```json
 Request:

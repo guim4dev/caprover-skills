@@ -82,6 +82,13 @@ class CapRover:
         apps = self.get_apps()
         return next((a for a in apps if a.get("appName") == app_name), None)
 
+    # Fields CapRover does NOT partially-merge on update: omitting one wipes it to
+    # empty/default instead of leaving the current value alone, despite the API
+    # looking like a PATCH. Verified 2026-08-06 against a live app: updating only
+    # instanceCount reset envVars to [], which took DATABASE_URL with it and crash-
+    # looped the container. Always resend these if you're updating anything else.
+    _NON_MERGING_FIELDS = {"envVars", "ports", "volumes"}
+
     def update_app(self, app_name: str, **kwargs) -> dict:
         """
         Update app definition. Keyword args map to API fields:
@@ -93,6 +100,10 @@ class CapRover:
             cap.update_app("myapp",
                 env_vars=[{"key": "FOO", "value": "bar"}],
                 ports=[{"hostPort": 25565, "containerPort": 7777}])
+
+        Any of envVars/ports/volumes you do NOT pass here are fetched from the
+        app's current definition and resent as-is, so this call can never wipe
+        them by omission (see _NON_MERGING_FIELDS).
         """
         field_map = {
             "image_name": "imageName",
@@ -111,6 +122,15 @@ class CapRover:
         for k, v in kwargs.items():
             api_key = field_map.get(k, k)
             payload[api_key] = v
+
+        missing = self._NON_MERGING_FIELDS - payload.keys()
+        if missing:
+            current = self.get_app(app_name)
+            if current:
+                for field in missing:
+                    if field in current:
+                        payload[field] = current[field]
+
         return self._call("/api/v2/user/apps/appDefinitions/update", payload)
 
     def set_service_override(self, app_name: str, override: dict) -> dict:
