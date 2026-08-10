@@ -87,7 +87,15 @@ class CapRover:
     # looking like a PATCH. Verified 2026-08-06 against a live app: updating only
     # instanceCount reset envVars to [], which took DATABASE_URL with it and crash-
     # looped the container. Always resend these if you're updating anything else.
-    _NON_MERGING_FIELDS = {"envVars", "ports", "volumes"}
+    #
+    # instanceCount and containerHttpPort joined this list 2026-08-10: calling
+    # update_app(env_vars=[...]) alone reset instanceCount to 0 (503/no task
+    # running), and a follow-up update_app(container_http_port=3000) alone reset
+    # instanceCount to 0 AGAIN while also having reset containerHttpPort to the
+    # CapRover default of 80 on the call before that — nginx routed to a port
+    # nothing listened on, 502 even though the container logs showed it healthy
+    # and listening. Took a live hemocione-mcp prod+dev outage to find both.
+    _NON_MERGING_FIELDS = {"envVars", "ports", "volumes", "instanceCount", "containerHttpPort"}
 
     def update_app(self, app_name: str, **kwargs) -> dict:
         """
