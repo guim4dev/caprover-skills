@@ -30,6 +30,18 @@ def _make_ctx():
     return ctx
 
 
+# Docker multiplexed log frame header: stream (0/1/2), 3 zero bytes, 4-byte size.
+# The size bytes are often printable (a 42-byte line has size '*'), so a
+# control-char filter alone leaves one stray character at the start of each line.
+_DOCKER_FRAME_HEADER = re.compile(r'[\x00-\x02]\x00\x00\x00[\s\S]{4}')
+
+
+def clean_docker_logs(raw: str) -> str:
+    """Strip Docker frame headers and stray control characters from container logs."""
+    raw = _DOCKER_FRAME_HEADER.sub('', raw)
+    return re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', raw)
+
+
 class CapRover:
     def __init__(self, base_url: str, password: str):
         """
@@ -204,9 +216,7 @@ class CapRover:
         """
         r = self._call(f"/api/v2/user/apps/appData/{app_name}/logs")
         raw = r.get("data", {}).get("logs", "")
-        if clean:
-            raw = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', raw)
-        return raw
+        return clean_docker_logs(raw) if clean else raw
 
     def tail_logs(self, app_name: str, n: int = 30) -> list:
         """Return last n unique lines of runtime logs."""
